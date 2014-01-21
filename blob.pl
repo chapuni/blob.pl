@@ -98,7 +98,7 @@ sub commit {
     }
 }
 
-# Push(tdp)
+# Push(udp)
 sub server_push {
     my @argv = @_;
     shift(@argv);
