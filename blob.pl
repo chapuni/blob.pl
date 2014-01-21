@@ -140,6 +140,13 @@ sub server_push {
 	    }
 	    next;
 	}
+	print STDERR "WAITING...\n";
+	sleep(10);
+	if ($sock->recv($buf, 1024)) {
+	    while ($sock->recv($buf, 1024)) {
+	    }
+	    next;
+	}
 	print STDERR "EXIT\n";
 	$sock->close();
 	exit(0);
