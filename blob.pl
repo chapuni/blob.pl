@@ -4,12 +4,32 @@ use IO::Socket;
 
 # branch=master buildnumber=4096 (got_revision=xxx)
 
+if ($ARGV[0] eq "START") {
+    shift(@ARGV);
+    system("start perl $0 @ARGV");
+    exit(0);
+}
+
 for (qw(build builds install tmp)) {
     push(@dirs, $_) if -d $_;
 }
 
+if (open(my $FH, "blob.git/port.txt")) {
+    $port = <$FH>;
+    chomp($port);
+    close($FH);
+}
+
 if ($ARGV[0] eq "PUSH") {
+    shift(@argv);
     &server_push(@ARGV);
+    die;
+}
+
+if ($ARGV[0] eq "ADD") {
+    shift(@ARGV);
+    &server_add(@ARGV);
+    &client_add(@ARGV);
     die;
 }
 
@@ -91,6 +111,8 @@ sub commit {
 
     mkdir('build');
 
+    &client_quit(@ARGV);
+
     system("git --git-dir=blob.git --work-tree=. add -A --ignore-errors @dirs");
     if (open(my $FH, "| git --git-dir=blob.git --work-tree=. commit @_ -F -")) {
 	print $FH $msg;
@@ -101,11 +123,12 @@ sub commit {
 # Push(udp)
 sub server_push {
     my @argv = @_;
-    shift(@argv);
-    if (shift(@argv) !~ /^PORT=(\d+)/) {
+    if ($argv[0] =~ /^PORT=(\d+)/) {
+	$port = $1;
+	shift(@argv);
+    } elsif ($port eq '') {
 	die "* Did you specify PORT=n ?";
     }
-    $port = $1;
 
     # Server
     $sock = IO::Socket::INET->new(
@@ -151,6 +174,109 @@ sub server_push {
 	$sock->close();
 	exit(0);
     }
+}
+
+# Add(tcp)
+sub server_add {
+    my @argv = @_;
+    my @argv = @_;
+    if ($argv[0] =~ /^PORT=(\d+)/) {
+	$port = $1;
+	shift(@argv);
+    } elsif ($port eq '') {
+	die "* Did you specify PORT=n ?";
+    }
+
+    # Server
+    $sock = IO::Socket::INET->new(
+	LocalAddr => "localhost",
+	LocalPort => $port,
+	#ReuseAddr => 1,
+	Proto     => "tcp",
+	);
+
+    return unless $sock;
+    $sock->listen || die;
+
+    #system("git --git-dir=blob.git --work-tree=. add -A --ignore-errors @argv");
+
+    print STDERR "START...<@argv>\n";
+
+    while (my $h = $sock->accept()) {
+	printf STDERR "ACCEPTED\n";
+
+	my $line = $h->getline();
+	chomp $line;
+	if ($line eq '(QUIT)') {
+	    $h->print("BYE\n");
+	    $h->close();
+	    $sock->close();
+	    print STDERR "(QUIT)TERMINATED.\n";
+	    sleep(10);
+	    exit(0);
+	}
+
+	print STDERR "<$line>\n";
+	$h->print("ACCEPTED $line\n");
+	$h->close();
+	#system("git --git-dir=blob.git --work-tree=. add -A --ignore-errors $line");
+    }
+    $sock->close();
+    print STDERR "WHAT HAPPENED?\n";
+    sleep(10);
+    exit(0);
+}
+
+# Add(tcp client)
+sub client_connect {
+    # Connect to Server
+    $sock = IO::Socket::INET->new(
+	PeerAddr => "localhost",
+	PeerPort => $port,
+	Proto    => "tcp",
+	);
+
+    return $sock;
+}
+
+sub client_add {
+    my @argv = @_;
+    if ($argv[0] =~ /^PORT=(\d+)/) {
+	$port = $1;
+	shift(@argv);
+    } elsif ($port eq '') {
+	die "* Did you specify PORT=n ?";
+    }
+
+    my $sock = &client_connect();
+    return unless $sock;
+
+    $sock->print("@argv\n");
+    print STDERR "SENT<@argv>\n";
+    printf STDERR "RECV<%s>\n", $sock->getline;
+    $sock->close();
+    exit(0);
+}
+
+sub client_quit {
+    my @argv = @_;
+    if ($argv[0] =~ /^PORT=(\d+)/) {
+	$port = $1;
+	shift(@argv);
+    } elsif ($port eq '') {
+	die "* Did you specify PORT=n ?";
+    }
+
+    my $sock = &client_connect();
+    return unless $sock;
+
+    $sock->print("(QUIT)\n");
+    print STDERR "SENT<@argv>\n";
+    printf("RECV<%s>\n", $sock->getline);
+    $sock->close();
+    exit(0);
+
+    #system("git --git-dir=blob.git --work-tree=. add -A --ignore-errors @argv");
 }
 
 #EOF
