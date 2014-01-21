@@ -1,8 +1,17 @@
 #!/usr/bin/perl
 
+use IO::Socket;
+
 # branch=master buildnumber=4096 (got_revision=xxx)
 
-@dirs = qw(build builds install tmp);
+for (qw(build builds install tmp)) {
+    push(@dirs, $_) if -d $_;
+}
+
+if ($ARGV[0] eq "PUSH") {
+    &server_push(@ARGV);
+    die;
+}
 
 foreach (@ARGV) {
     die unless /^([^=]+)=(.*)$/;
@@ -80,17 +89,61 @@ sub ref {
 sub commit {
     my $msg = shift @_;
 
-    my (@d) = ();
-
     mkdir('build');
 
-    for (@dirs) {
-	push(@d, $_) if -d $_;
-    }
-
-    system("git --git-dir=blob.git --work-tree=. add -A --ignore-errors @d");
+    system("git --git-dir=blob.git --work-tree=. add -A --ignore-errors @dirs");
     if (open(my $FH, "| git --git-dir=blob.git --work-tree=. commit @_ -F -")) {
 	print $FH $msg;
 	close($FH);
     }
 }
+
+# Push(tdp)
+sub server_push {
+    my @argv = @_;
+    shift(@argv);
+    if (shift(@argv) !~ /^PORT=(\d+)/) {
+	die "* Did you specify PORT=n ?";
+    }
+    $port = $1;
+
+    # Server
+    $sock = IO::Socket::INET->new(
+	LocalAddr => "localhost",
+	LocalPort => $port,
+	ReuseAddr => 0,
+	Proto     => "udp",
+	Blocking  => 0,
+	);
+
+    if (!$sock) {
+	$sock = IO::Socket::INET->new(
+	    PeerAddr => "localhost",
+	    PeerPort => $port,
+	    Proto    => "udp",
+	    ) || die;
+	print STDERR "Requesting push\n";
+	$sock->send("push\n");
+	$sock->close;
+	exit(0);
+    }
+
+    while (1) {
+	printf STDERR "PROCESSING\n";
+	if (system("git --git-dir=blob.git push")) {
+	    print STDERR "$! -- $@\n";
+	    sleep(5);
+	    die;
+	}
+	if ($sock->recv($buf, 1024)) {
+	    while ($sock->recv($buf, 1024)) {
+	    }
+	    next;
+	}
+	print STDERR "EXIT\n";
+	$sock->close();
+	exit(0);
+    }
+}
+
+#EOF
