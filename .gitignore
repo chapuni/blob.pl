@@ -1,0 +1,10 @@
+.*
+twistd.*
+bin
+buildbot.tac*
+clang-3stage-x86_64-linux
+clang-i686-cygwin-RA-centos6
+cmake-clang-tools-x86_64-linux
+cmake-clang-x86_64-linux
+cmake-llvm-x86_64-linux
+info
