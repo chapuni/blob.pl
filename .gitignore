@@ -8,3 +8,10 @@ cmake-clang-tools-x86_64-linux
 cmake-clang-x86_64-linux
 cmake-llvm-x86_64-linux
 info
+clang-i686-msys
+desktop.ini
+msbuild-llvmclang-x64-msc17-DA
+ninja-clang-i686-msc17-R
+ninja-clang-x64-mingw64-RA
+ninja.exe
+*.bat*
