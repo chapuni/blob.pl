@@ -27,7 +27,8 @@ sub pre {
 	chomp $cur;
 	close($FH);
     } else {
-	system("git init --bare blob.git");
+	system("git init --bare blob.git") && die "git-init failed";
+	print STDERR "* Blob is created.\n";
     }
 
     $msg = sprintf("%d-prebuild\n\n", $arg{'buildnumber'}) . $msg;
@@ -39,7 +40,11 @@ sub pre {
     printf $FH "$ref\n";
     close($FH);
 
-    print STDERR "* Branch is changed from $cur to $ref\n";
+    if ($cur eq '') {
+	print STDERR "* New branch $ref is created.\n";
+    } else {
+	print STDERR "* Branch is changed from $cur to $ref\n";
+    }
 
     system("rm -rf @dirs");
 
