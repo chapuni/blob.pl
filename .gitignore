@@ -15,3 +15,4 @@ ninja-clang-i686-msc17-R
 ninja-clang-x64-mingw64-RA
 ninja.exe
 *.bat*
+clang-3stage-i686-cygwin
