@@ -198,9 +198,9 @@ sub server_add {
     return unless $sock;
     $sock->listen || die;
 
-    #system("git --git-dir=blob.git --work-tree=. add -A --ignore-errors @argv");
-
-    print STDERR "START...<@argv>\n";
+    print STDERR "git-add <@argv>...\n";
+    system("git --git-dir=blob.git --work-tree=. add -v -A --ignore-errors @argv");
+    print STDERR "git-add <@argv>...done\n";
 
     while (my $h = $sock->accept()) {
 	printf STDERR "ACCEPTED\n";
@@ -219,7 +219,9 @@ sub server_add {
 	print STDERR "<$line>\n";
 	$h->print("ACCEPTED $line\n");
 	$h->close();
-	#system("git --git-dir=blob.git --work-tree=. add -A --ignore-errors $line");
+	print STDERR "git-add <$line>...\n";
+	system("git --git-dir=blob.git --work-tree=. add -v -A --ignore-errors $line");
+	print STDERR "git-add <$line>...done.\n";
     }
     $sock->close();
     print STDERR "WHAT HAPPENED?\n";
@@ -268,15 +270,15 @@ sub client_quit {
     }
 
     my $sock = &client_connect();
-    return unless $sock;
+    unless ($sock) {
+	print STDERR "* Server not found.\n";
+	return;
+    }
 
     $sock->print("(QUIT)\n");
-    print STDERR "SENT<@argv>\n";
+    print STDERR "QUIT\n";
     printf("RECV<%s>\n", $sock->getline);
     $sock->close();
-    exit(0);
-
-    #system("git --git-dir=blob.git --work-tree=. add -A --ignore-errors @argv");
 }
 
 #EOF
