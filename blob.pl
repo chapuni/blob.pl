@@ -10,7 +10,9 @@ foreach (@ARGV) {
     $msg .= "$_\n";
 }
 
-if ($arg{'got_revision'} ne '') {
+if ($arg{'fetch'} ne '') {
+    &fetch;
+} elsif ($arg{'got_revision'} ne '') {
     &post;
 } else {
     &pre;
@@ -93,4 +95,68 @@ sub commit {
 	print $FH $msg;
 	close($FH);
     }
+}
+
+# cd ${root}
+# fetch={builder} got_revision={rev} ref=llvm-project.git
+sub fetch {
+    my $blob_git = "$ENV{PWD}/../$arg{'fetch'}/blob.git";
+    my $blob_hash, $bn, $rev;
+    my $tree_rev = '';
+    my ($target_rev) = $arg{'got_revision'} =~ /r(\d+)/;
+    open(my $FH, "git --git-dir=$blob_git log --oneline --no-decorate --date-order --all --max-count=32 |") || die "Cannot peek $arg{'fetch'}/blob.git";
+    for (<$FH>) {
+	next unless ($blob_hash, $bn, $rev) = /^([0-9A-Fa-f]+)\s+OK\s+(\d+)-r(\d+)/;
+	print "hash=$blob_hash bn=$bn rev=$rev\n";
+	if ($rev == $target_rev) {
+	    $tree_rev = "r$target_rev";
+	    last;
+	}
+	if ($rev <= $target_rev) {
+	    # Inspect valid ref.
+	    next unless (`git --git-dir=$arg{'ref'} rev-list --no-walk --abbrev-commit refs/tags/t/r$rev` =~ /^([0-9A-Fa-f]+)/);
+	    $tree_rev = $1;
+	    last;
+	}
+    }
+    close($FH);
+    if ($tree_rev eq '') {
+	print "Skip.";
+	exit 0;
+    }
+    print "hash=$blob_hash bn=$bn rev=$rev<=$target_rev tree=$tree_rev\n";
+
+    # Expand blobs
+    my $fetch_git = "git --git-dir=$arg{'fetch'}/.git --work-tree=$arg{'fetch'}";
+    if (! -d $arg{'fetch'}) {
+	system("git init $arg{'fetch'}") && die;
+	open(my $FH, "> $arg{'fetch'}/.git/objects/info/alternates") || die;
+	print $FH "$blob_git/objects";
+	close($FH);
+	system("$fetch_git checkout -f $blob_hash") && die;
+    } else {
+	system("$fetch_git --no-pager diff --shortstat $blob_hash") && die;
+	system("$fetch_git checkout -f $blob_hash") && die;
+	system("$fetch_git clean -fxd") && die;
+    }
+
+    # Exit if empty
+    exit 0 unless -d "build";
+
+    # Checkout the tree.
+    system("git --git-dir=llvm-project/.git --work-tree=llvm-project reset --hard $tree_rev") && die;
+
+    # Update build tree with blob
+    my @srcs;
+    for (qw(build/lib build/tools/clang/lib)) {
+	push(@srcs, $_) if -d "$arg{'fetch'}/$_";
+    }
+    die unless @srcs;
+    system("(cd $arg{'fetch'}; find @srcs -type f -name '*.o' -o -name '*.inc' -o -name '*.def' | xargs cp -u --parent --target-directory=..)");
+    system("git --git-dir=blob.git --work-tree=. status -s @srcs");
+
+    # Checkout the tree with got_revision.
+    system("git --git-dir=llvm-project/.git --work-tree=llvm-project reset --hard $arg{'got_revision'}") && die;
+
+    exit 0;
 }
