@@ -1,3 +1,4 @@
+*~
 .*
 twistd.*
 bin
@@ -8,3 +9,6 @@ cmake-clang-tools-x86_64-linux
 cmake-clang-x86_64-linux
 cmake-llvm-x86_64-linux
 info
+clang-3stage-i686-linux
+cmake-dragonegg-x86_64-linux
+ninja-x64-msvc-RA-centos6
