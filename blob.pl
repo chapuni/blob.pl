@@ -135,7 +135,7 @@ sub fetch {
 	close($FH);
 	system("$fetch_git checkout -f $blob_hash") && die;
     } else {
-	system("$fetch_git --no-pager diff --shortstat $blob_hash") && die;
+	system("$fetch_git --no-pager diff --shortstat $blob_hash");
 	system("$fetch_git checkout -f $blob_hash") && die;
 	system("$fetch_git clean -fxd") && die;
     }
